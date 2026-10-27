@@ -1,8 +1,9 @@
 (() => {
   const EX = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
   const MUSCLES = ['腿臀', '背', '胸', '肩', '核心'];
-  const EMOJI = { 腿臀: '🍑', 背: '🦋', 胸: '💛', 肩: '🔮', 核心: '🍀' };
-  const TITLE_EMOJI = { 動作: '🔍', 今天練: '🏋️‍♀️', 進度: '🌈', 紀錄: '📒', 新增: '✏️' };
+  const HOME_FILTER = '在家可做';
+  const dot = m => `<i class="dot" data-m="${m}"></i>`;
+  const icoFor = ex => `<span class="ico" data-m="${ex.muscle}">${illoFor(ex)}</span>`;
   // 器械配重片常見的重量
   const STACK = [4.5, 9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 54, 59, 64, 68, 73, 77];
   const TYPE = { coach: '教練課', home: '在家', self: '自主' };
@@ -19,7 +20,7 @@
   // 家裡的啞鈴（每支公斤數）
   const homeDB = () => store.get('homeDB', [3, 6, 12]);
 
-  const state = { tab: 'lookup', detail: null, filter: '全部', q: '', mode: store.get('mode', 'gym'), parsed: null };
+  const state = { tab: 'lookup', detail: null, filter: '全部', q: '', mode: store.get('mode', 'gym'), parsed: null, logIdx: 0 };
 
   // ---------- 小工具 ----------
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,11 +44,12 @@
 
   function celebrate() {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const pieces = ['🎉', '💪', '✨', '🍑', '💖', '⭐', '🌸'];
+    const colors = ['#F2A497', '#F6D27A', '#A8D3E6', '#B9DAA5'];
     for (let i = 0; i < 24; i++) {
       const c = document.createElement('div');
       c.className = 'confetti';
-      c.textContent = pieces[i % pieces.length];
+      c.style.background = colors[i % colors.length];
+      c.style.borderRadius = i % 3 === 0 ? '50%' : i % 3 === 1 ? '3px' : '50% 0';
       c.style.left = Math.random() * 100 + 'vw';
       c.style.animationDuration = 1.6 + Math.random() * 1.4 + 's';
       c.style.animationDelay = Math.random() * 0.4 + 's';
@@ -156,7 +158,7 @@
   }
 
   // ---------- 畫面框架 ----------
-  function setTitle(t, back, emoji = TITLE_EMOJI[t]) { $title.textContent = emoji ? `${emoji} ${t}` : t; $back.hidden = !back; }
+  function setTitle(t, back) { $title.textContent = t; $back.hidden = !back; }
 
   function render() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
@@ -174,20 +176,20 @@
   function openDetail(id) { state.scrollY = window.scrollY; state.detail = id; render(); window.scrollTo(0, 0); }
 
   const statusBadge = st => ({
-    up: '<span class="badge up">🎉 進步</span>',
-    down: '<span class="badge down">💧 退步</span>',
-    flat: '<span class="badge">😌 持平</span>',
-    few: '<span class="badge">🐣 1 次</span>',
-    new: '<span class="badge">✨ 新的</span>',
+    up: '<span class="badge up">↑ 進步</span>',
+    down: '<span class="badge down">↓ 退步</span>',
+    flat: '<span class="badge">＝ 持平</span>',
+    few: '<span class="badge">1 次</span>',
+    new: '<span class="badge">新的</span>',
   })[st.status];
 
   // ---------- 動作速查 ----------
   function renderLookup() {
     setTitle('動作');
-    const filters = ['全部', ...MUSCLES, '🏠 在家可做'];
+    const filters = ['全部', ...MUSCLES, HOME_FILTER];
     view.innerHTML = `
       <input class="search" id="q" type="search" placeholder="搜尋動作，例如 row、保蹲、肩推" value="${esc(state.q)}" autocomplete="off">
-      <div class="chips">${filters.map(f => `<button class="chip ${f === state.filter ? 'on' : ''}" data-filter="${f}" ${MUSCLES.includes(f) ? `data-m="${f}"` : ''}>${EMOJI[f] ? EMOJI[f] + ' ' : ''}${f}</button>`).join('')}</div>
+      <div class="chips">${filters.map(f => `<button class="chip ${f === state.filter ? 'on' : ''}" data-filter="${f}" ${MUSCLES.includes(f) ? `data-m="${f}"` : f === HOME_FILTER ? 'data-m="肩"' : 'data-m="胸"'}>${MUSCLES.includes(f) ? dot(f) : ''}${f}</button>`).join('')}</div>
       <div id="exlist"></div>`;
     view.querySelector('#q').addEventListener('input', e => { state.q = e.target.value; renderExList(); });
     view.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { state.filter = b.dataset.filter; renderLookup(); }));
@@ -197,7 +199,7 @@
   function renderExList() {
     const q = norm(state.q);
     let list = EXERCISES.filter(e => {
-      if (state.filter === '🏠 在家可做' && !e.home) return false;
+      if (state.filter === HOME_FILTER && !e.home) return false;
       if (MUSCLES.includes(state.filter) && e.muscle !== state.filter) return false;
       if (!q) return true;
       return [e.zh, e.en, ...e.aliases].some(a => norm(a).includes(q));
@@ -206,7 +208,7 @@
 
     const row = ({ e, st }) => `
       <button class="row" data-ex="${e.id}" data-m="${e.muscle}">
-        <span class="ico">${EMOJI[e.muscle]}</span>
+        ${icoFor(e)}
         <div class="main">
           <div class="name">${esc(e.zh)} <span class="en">${esc(e.en)}</span></div>
           <div class="last">${st.last ? `上次 ${shortDate(st.last.d)}・${esc(fmtGroups(st.last.groups))}` : '還沒有紀錄'}</div>
@@ -219,7 +221,7 @@
     if (state.filter === '全部' && !q) {
       box.innerHTML = MUSCLES.map(m => {
         const items = list.filter(x => x.e.muscle === m);
-        return `<h2 class="sec" data-m="${m}">${EMOJI[m]} ${m}</h2><div class="list">${items.map(row).join('')}</div>`;
+        return `<h2><span class="pill" data-m="${m}">${m}</span><span class="small muted">${items.length} 個動作</span></h2><div class="list">${items.map(row).join('')}</div>`;
       }).join('');
     } else {
       box.innerHTML = `<div class="list" style="margin-top:8px">${list.map(row).join('')}</div>`;
@@ -247,7 +249,7 @@
       <path class="area" d="M${x(0)},${pt + ih} ${pts.map((p, i) => `L${x(i)},${y(p.v)}`).join(' ')} L${x(pts.length - 1)},${pt + ih}Z"/>
       <polyline class="lineplot" points="${pts.map((p, i) => `${x(i)},${y(p.v)}`).join(' ')}"/>
       ${pts.map((p, i) => `<circle class="dot" cx="${x(i)}" cy="${y(p.v)}" r="4"/>${showVal(i) ? `<text class="val" x="${x(i)}" y="${y(p.v) - 9}" text-anchor="middle">${num(p.v)}</text>` : ''}`).join('')}
-      ${xl.map(i => `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${shortDate(pts[i].d)}</text>`).join('')}
+      ${xl.map(i => `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 && pts.length > 1 ? 'start' : i === pts.length - 1 && pts.length > 1 ? 'end' : 'middle'}">${shortDate(pts[i].d)}</text>`).join('')}
     </svg>`;
   }
 
@@ -255,16 +257,16 @@
     const ex = EX[id];
     const st = stats(id);
     const sg = suggest(id);
-    setTitle(ex.zh, true, '');
+    setTitle(ex.zh, true);
     const last = st.last;
     const lastKg = last ? topKg(ex, last.groups) : null;
     view.innerHTML = `<div data-m="${ex.muscle}">
       <div class="hero">
-        <div class="big-emoji">${EMOJI[ex.muscle]}</div>
+        <div class="art">${illoFor(ex)}</div>
         <div>
-          <div style="font-weight:700">${esc(ex.en)}</div>
-          <span class="badge m">${ex.muscle}</span> <span class="badge m">${ex.equip}</span>
-          ${ex.home ? '<span class="badge home">🏠 在家可做</span>' : ''}
+          <div class="en">${esc(ex.en)}</div>
+          <span class="badge m">${ex.muscle}</span> <span class="badge">${ex.equip}</span>
+          ${ex.home ? '<span class="badge home">在家可做</span>' : ''}
         </div>
       </div>
 
@@ -282,21 +284,21 @@
       </div>
 
       <div class="card suggest">
-        <div class="label">✨ 這次建議</div>
+        <div class="label">這次建議</div>
         <div class="value">${sg.kg != null ? kgText(sg.kg) : '—'} <small>${sg.sets} 組 × ${sg.reps} 下${pairHint(ex, sg.kg) ? `（${pairHint(ex, sg.kg)}）` : ''}</small></div>
         <div class="small">${esc(sg.text)}</div>
         ${st.stalled && !sg.up ? '<div class="small" style="margin-top:4px">已經連續 3 次同樣重量了，可以跟教練討論加重。</div>' : ''}
       </div>
 
       ${st.withKg.length >= 2 ? `
-        <h2>📈 重量趨勢 ${ex.assist ? '<span class="small">（輔助重量，越低越強，所以圖是倒過來的）</span>' : ''}</h2>
+        <h2>重量趨勢 ${ex.assist ? '<span class="small">（輔助重量，越低越強，所以圖是倒過來的）</span>' : ''}</h2>
         <div class="card">${chartSVG(ex, st.withKg)}</div>` : ''}
 
       ${ex.cues.length ? `
-        <h2>🗣️ 教練提醒</h2>
+        <h2>教練提醒</h2>
         <div class="card"><ul class="cues">${ex.cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
 
-      <h2>📒 全部紀錄（${st.h.length} 次）</h2>
+      <h2>全部紀錄（${st.h.length} 次）</h2>
       <div class="card">
         ${st.h.length ? `<table class="hist">${[...st.h].reverse().map(x => `
           <tr><td>${fmtDate(x.d)}<br><span class="badge ${x.t}">${TYPE[x.t]}</span></td>
@@ -371,14 +373,17 @@
       const home = homeDB();
       view.innerHTML = `
         <div class="seg">
-          <button data-mode="gym" class="${state.mode === 'gym' ? 'on' : ''}">🏋️ 健身房</button>
-          <button data-mode="home" class="${state.mode === 'home' ? 'on' : ''}">🏠 在家（啞鈴）</button>
+          <button data-mode="gym" class="${state.mode === 'gym' ? 'on' : ''}">${illo('machine', false)}健身房</button>
+          <button data-mode="home" class="${state.mode === 'home' ? 'on' : ''}">${illo('dumbbell', false)}在家</button>
         </div>
+        <div class="welcome">${state.mode === 'gym'
+          ? illo('kettlebell') + illo('pullup') + illo('barbell')
+          : illo('dumbbell') + illo('body') + illo('dumbbell')}</div>
         <div class="card">
           ${state.mode === 'gym'
             ? '<p style="margin-top:0">照教練常排的結構產生菜單：<br>1 個下肢主項＋1 個下肢輔助＋2 個背＋1 個推＋1 個輔助／核心。</p>'
             : `<p style="margin-top:0">只用啞鈴和徒手動作：<br>下肢 2 個＋背＋推＋肩膀輔助＋核心收尾。<br>主項做 12 下以上，對減脂比較有幫助。</p>
-               <p class="small muted">${home.length ? `家裡的啞鈴：${home.map(kgText).join('、')}（每支）` : '⚠️ 還沒設定家裡有幾公斤的啞鈴，可以到「新增」分頁設定，建議重量會更準。'}</p>`}
+               <p class="small muted">${home.length ? `家裡的啞鈴：${home.map(kgText).join('、')}（每支）` : '還沒設定家裡有幾公斤的啞鈴，可以到「新增」分頁設定，建議重量會更準。'}</p>`}
           <p class="small muted" style="margin-bottom:0">會優先排比較久沒練到的動作，重量依照上次紀錄自動帶入。</p>
         </div>
         <button class="btn block" id="gen">產生今天的菜單</button>`;
@@ -390,7 +395,7 @@
     const doneCount = w.items.reduce((s, it) => s + it.sets.filter(x => x.done).length, 0);
     const allCount = w.items.reduce((s, it) => s + it.sets.length, 0);
     view.innerHTML = `
-      <div class="muted" style="font-weight:600">${w.mode === 'home' ? '🏠 在家' : '🏋️ 健身房'}・${fmtDate(w.d)}・完成 ${doneCount}/${allCount} 組 ${doneCount === allCount ? '🎉' : ''}</div>
+      <div>${w.mode === 'home' ? '在家' : '健身房'}・${fmtDate(w.d)}・完成 ${doneCount}/${allCount} 組${doneCount === allCount ? '，全部完成！' : ''}</div>
       <div class="progress-pill"><div style="width:${allCount ? doneCount / allCount * 100 : 0}%"></div></div>
       ${w.items.map((it, i) => workoutCard(w, it, i)).join('')}
       <div class="field" style="margin-top:14px">
@@ -459,9 +464,13 @@
     return `
       <div class="card" data-m="${ex.muscle}">
         <div class="ex-head">
-          <div>
-            <div class="slot">${EMOJI[ex.muscle]} ${esc(it.slot)}</div>
-            <h3>${esc(ex.zh)} <span class="small muted">${esc(ex.en)}</span></h3>
+          <div class="who">
+            ${icoFor(ex)}
+            <div>
+              <div class="slot">${dot(ex.muscle)}${esc(it.slot)}</div>
+              <h3>${esc(ex.zh)}</h3>
+              <div class="small muted">${esc(ex.en)}</div>
+            </div>
           </div>
           <div class="tools">
             <button class="btn ghost sm" data-open="${it.id}">紀錄</button>
@@ -470,16 +479,16 @@
         </div>
         <div class="hint">
           ${st.last ? `上次 ${shortDate(st.last.d)}：<strong>${esc(fmtGroups(st.last.groups))}</strong>` : '還沒做過'}
-          ${substitute}<br>💡 ${esc(sg.text)}${pairHint(ex, it.sets[0]?.kg) ? `（${pairHint(ex, it.sets[0].kg)}）` : ''}
+          ${substitute}<br><span class="sg">${esc(sg.text)}${pairHint(ex, it.sets[0]?.kg) ? `（${pairHint(ex, it.sets[0].kg)}）` : ''}</span>
         </div>
-        ${ex.cues[0] ? `<div class="cue1">📌 ${esc(ex.cues[0])}</div>` : ''}
+        ${ex.cues[0] ? `<div class="cue1">${esc(ex.cues[0])}</div>` : ''}
         <div class="sets">
           <div class="h">組</div><div class="h">公斤${ex.pair ? '（兩手合計）' : ''}</div><div class="h">次數</div><div class="h"></div>
           ${it.sets.map((s, j) => `
             <div class="n">${j + 1}</div>
             <div class="${s.done ? 'done-row' : ''}"><input inputmode="decimal" data-f="kg" data-i="${i}" data-s="${j}" value="${s.kg ?? ''}" placeholder="—"></div>
             <div class="${s.done ? 'done-row' : ''}"><input inputmode="numeric" data-f="reps" data-i="${i}" data-s="${j}" value="${s.reps ?? ''}" placeholder="—"></div>
-            <button class="check ${s.done ? 'done' : ''}" data-check="${i},${j}" aria-label="完成第 ${j + 1} 組">${s.done ? '💪' : ''}</button>`).join('')}
+            <button class="check ${s.done ? 'done' : ''}" data-check="${i},${j}" aria-label="完成第 ${j + 1} 組">${s.done ? illo('check', false) : ''}</button>`).join('')}
         </div>
         <button class="btn ghost sm" style="margin-top:8px" data-addset="${i}">＋ 加一組</button>
       </div>`;
@@ -507,8 +516,8 @@
     store.set('workout', null);
     stopTimer();
     celebrate();
-    toast('今天也很棒！已儲存 💪');
-    state.tab = 'log'; render();
+    toast('今天也很棒！已儲存');
+    state.tab = 'log'; state.logIdx = 0; render();
   }
 
   // ---------- 休息計時 ----------
@@ -524,7 +533,7 @@
   function tick() {
     const left = Math.max(0, Math.round((timerEnd - Date.now()) / 1000));
     $left.textContent = `${Math.floor(left / 60)}:${pad(left % 60)}`;
-    if (left <= 0) { stopTimer(); toast('休息結束，下一組！🔥'); navigator.vibrate?.(300); }
+    if (left <= 0) { stopTimer(); toast('休息結束，下一組！'); navigator.vibrate?.(300); }
   }
   function stopTimer() { clearInterval(timerId); $timer.hidden = true; }
   document.getElementById('timer-add').addEventListener('click', () => { timerEnd += 30000; tick(); });
@@ -561,21 +570,21 @@
 
     view.innerHTML = `
       <div class="big-stat">
-        <div class="card pastel-1"><div class="label">👩‍🏫 教練課</div><div class="value">${coach} <small>堂</small></div></div>
-        <div class="card pastel-2"><div class="label">🏠 自己練</div><div class="value">${mine} <small>次</small></div></div>
+        <div class="card fill-coral"><div class="label">教練課</div><div class="value">${coach} <small>堂</small></div></div>
+        <div class="card fill-mizu"><div class="label">自己練</div><div class="value">${mine} <small>次</small></div></div>
       </div>
 
-      <h2>🎯 最近 8 週練到的部位（動作數）</h2>
+      <h2>最近 8 週練到的部位（動作數）</h2>
       <div class="card bars">
-        ${MUSCLES.map(m => `<div class="bar" data-m="${m}"><span>${EMOJI[m]} ${m}</span><div class="track"><div class="fill" style="width:${byMuscle[m] / maxM * 100}%"></div></div><span class="num">${byMuscle[m]}</span></div>`).join('')}
+        ${MUSCLES.map(m => `<div class="bar" data-m="${m}"><span>${dot(m)}${m}</span><div class="track"><div class="fill" style="width:${byMuscle[m] / maxM * 100}%"></div></div><span class="num">${byMuscle[m]}</span></div>`).join('')}
         ${missing.length ? `<div class="small muted" style="margin-top:6px">最近都沒有練到：${missing.join('、')}，排菜單時可以補一下。</div>` : ''}
       </div>
 
-      <h2>🚀 重量進步（第一次 → 最近一次）</h2>
+      <h2>重量進步（第一次 → 最近一次）</h2>
       <div class="list">
         ${prog.map(({ e, a, b, pct, st }) => `
           <button class="row" data-ex="${e.id}" data-m="${e.muscle}">
-            <span class="ico">${EMOJI[e.muscle]}</span>
+            ${icoFor(e)}
             <div class="main">
               <div class="name">${esc(e.zh)}</div>
               <div class="last">${kgText(a)} → ${kgText(b)}${e.assist ? '（輔助）' : ''}・${st.withKg.length} 次紀錄</div>
@@ -585,31 +594,61 @@
       </div>
       <p class="small muted">輔助引體向上是看「輔助重量減少多少」，減少越多代表越強。</p>
 
-      <h2>📅 每月訓練次數</h2>
+      <h2>每月訓練次數</h2>
       <div class="card bars">
-        ${mKeys.map(k => `<div class="bar"><span>${k.slice(0, 4) === today().slice(0, 4) ? '' : k.slice(2, 4) + '/'}${+k.slice(5)}月</span><div class="track"><div class="fill" style="width:${months[k] / maxMo * 100}%"></div></div><span class="num">${months[k]}</span></div>`).join('')}
+        ${mKeys.map(k => `<div class="bar" data-m="背"><span>${k.slice(0, 4) === today().slice(0, 4) ? '' : k.slice(2, 4) + '/'}${+k.slice(5)}月</span><div class="track"><div class="fill" style="width:${months[k] / maxMo * 100}%"></div></div><span class="num">${months[k]}</span></div>`).join('')}
       </div>`;
     view.querySelectorAll('[data-ex]').forEach(b => b.addEventListener('click', () => openDetail(b.dataset.ex)));
   }
 
   // ---------- 紀錄 ----------
-  function renderLog() {
+  // 一次看一天，用日期列或左右箭頭切換
+  function renderLog(bounce = false) {
     setTitle('紀錄');
     const sessions = allSessions().reverse();
-    view.innerHTML = sessions.map(s => `
-      <div class="card">
+    if (!sessions.length) { view.innerHTML = '<div class="empty">還沒有紀錄</div>'; return; }
+    const i = state.logIdx = Math.min(Math.max(state.logIdx, 0), sessions.length - 1);
+    const s = sessions[i];
+    const thisYear = today().slice(0, 4);
+    view.innerHTML = `
+      <div class="dates" id="dates">
+        ${sessions.map((x, j) => `
+          <button data-idx="${j}" class="${j === i ? 'on' : ''}" aria-label="${fmtDate(x.d)} ${TYPE[x.t]}">
+            ${x.d.slice(0, 4) !== thisYear ? `<span class="y">${x.d.slice(0, 4)}</span>` : ''}
+            <span class="md">${shortDate(x.d)}</span><i class="t-${x.t}"></i>
+          </button>`).join('')}
+      </div>
+      <div class="datebar">
+        <button class="arrow" id="newer" aria-label="較新的一次" ${i === 0 ? 'disabled' : ''}>‹</button>
+        <div class="when">
+          <div class="d">${fmtDate(s.d)}</div>
+          <div class="small muted">${agoText(s.d)}・第 ${sessions.length - i} 次</div>
+        </div>
+        <button class="arrow" id="older" aria-label="較早的一次" ${i === sessions.length - 1 ? 'disabled' : ''}>›</button>
+      </div>
+      <div class="card ${bounce ? 'bounce-in' : ''}">
         <div class="ex-head" style="margin-bottom:6px">
-          <div><strong>${fmtDate(s.d)}</strong> <span class="badge ${s.t}">${TYPE[s.t]}</span></div>
+          <span class="badge ${s.t}">${TYPE[s.t]}</span>
           ${s.id ? `<button class="btn ghost sm" data-del="${s.id}">刪除</button>` : ''}
         </div>
-        ${s.items.map(it => `<div class="sess-item"><span>${EMOJI[EX[it[0]]?.muscle] || '•'} ${esc(EX[it[0]]?.zh || it[0])}</span><span class="g">${esc(fmtGroups(it[1]))}</span></div>`).join('')}
-        ${s.note ? `<div class="small muted" style="margin-top:6px">📝 ${esc(s.note)}</div>` : ''}
-      </div>`).join('');
-    view.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+        ${s.items.map(it => {
+          const ex = EX[it[0]];
+          return `<div class="sess-item">${ex ? icoFor(ex) : ''}
+            <div class="nm">${esc(ex?.zh || it[0])}<div class="g">${esc(fmtGroups(it[1]))}</div></div></div>`;
+        }).join('')}
+        ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}
+      </div>`;
+
+    const go = j => { state.logIdx = j; renderLog(true); };
+    view.querySelectorAll('[data-idx]').forEach(b => b.addEventListener('click', () => go(+b.dataset.idx)));
+    view.querySelector('#newer').addEventListener('click', () => go(i - 1));
+    view.querySelector('#older').addEventListener('click', () => go(i + 1));
+    view.querySelector('#dates .on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    view.querySelector('[data-del]')?.addEventListener('click', e => {
       if (!confirm('確定要刪除這筆紀錄？')) return;
-      store.set('mySessions', mySessions().filter(s => String(s.id) !== b.dataset.del));
+      store.set('mySessions', mySessions().filter(x => String(x.id) !== e.currentTarget.dataset.del));
       renderLog();
-    }));
+    });
   }
 
   // ---------- 解析教練的 LINE 紀錄 ----------
@@ -770,8 +809,8 @@
     store.set('mySessions', list);
     state.parsed = null;
     celebrate();
-    toast(`已儲存 ${ok.length} 個動作 🎉`);
-    state.tab = 'log'; render(); window.scrollTo(0, 0);
+    toast(`已儲存 ${ok.length} 個動作`);
+    state.tab = 'log'; state.logIdx = 0; render(); window.scrollTo(0, 0);
   }
 
   function exportData() {
