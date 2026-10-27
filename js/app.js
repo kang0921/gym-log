@@ -298,6 +298,8 @@
         <h2>教練提醒</h2>
         <div class="card"><ul class="cues">${ex.cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
 
+      ${tutorialHTML(id)}
+
       <h2>全部紀錄（${st.h.length} 次）</h2>
       <div class="card">
         ${st.h.length ? `<table class="hist">${[...st.h].reverse().map(x => `
@@ -305,6 +307,28 @@
           <td><strong>${esc(fmtGroups(x.groups))}</strong><div class="small muted">${esc(x.raw || '')}</div></td></tr>`).join('')}</table>` : '<div class="muted">還沒有紀錄</div>'}
       </div>
     </div>`;
+  }
+
+  // 動作教學：示範動畫＋分解圖＋文字
+  function tutorialHTML(id) {
+    const tu = TUTORIALS[id];
+    if (!tu) return '';
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const labels = poseLabels(id);
+    return `
+      <h2 id="tutorial">動作教學</h2>
+      <div class="card tut">
+        ${still ? '' : `<div class="stage">${poseSVG(id, 'anim')}</div>`}
+        <div class="frames">
+          ${labels.map((l, i) => `<figure>${poseSVG(id, i)}<figcaption><b>${i + 1}</b>${esc(l)}</figcaption></figure>`).join('')}
+        </div>
+        <h4>步驟</h4>
+        <ol class="steps">${tu.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+        <h4>常見錯誤</h4>
+        <ul class="oops">${tu.mistakes.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        <p class="target"><span class="badge m">練到</span> ${esc(tu.target)}</p>
+        <p class="small muted" style="margin-bottom:0">一般教學僅供參考，以教練說的為準。</p>
+      </div>`;
   }
 
   // ---------- 今天練 ----------
@@ -443,7 +467,10 @@
       ww.items[i] = { ...buildItem(id, it.slot, ww.mode), slotIdx: it.slotIdx };
       saveWorkout(ww); renderToday();
     }));
-    view.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openDetail(b.dataset.open)));
+    view.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
+      openDetail(b.dataset.open);
+      document.getElementById('tutorial')?.scrollIntoView();
+    }));
     view.querySelector('#note').addEventListener('input', e => { const ww = getWorkout(); ww.note = e.target.value; saveWorkout(ww); });
     view.querySelector('#regen').addEventListener('click', () => {
       if (doneCount && !confirm('已經打勾的組數會清掉，確定要重新產生？')) return;
@@ -473,7 +500,7 @@
             </div>
           </div>
           <div class="tools">
-            <button class="btn ghost sm" data-open="${it.id}">紀錄</button>
+            <button class="btn ghost sm" data-open="${it.id}">教學</button>
             <button class="btn ghost sm" data-swap="${i}">換一個</button>
           </div>
         </div>

@@ -183,6 +183,28 @@ table.hist td { padding: 9px 4px; border-bottom: 2px dashed var(--hair); vertica
 table.hist tr:last-child td { border-bottom: 0; }
 table.hist td:first-child { white-space: nowrap; color: var(--muted); width: 1%; padding-right: 10px; }
 
+/* 動作教學 */
+.tut h4 { font-size: 16px; font-weight: 400; margin: 16px 0 6px; }
+.tut .stage { background: var(--m-soft); border: 2.5px solid var(--ink); border-radius: 20px; padding: 6px 10px 0; }
+.tut .stage .pose { width: 100%; height: auto; display: block; }
+.tut .frames { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.tut figure { margin: 0; border: 2.5px solid var(--ink); border-radius: 16px; padding: 4px 4px 6px; background: var(--paper); }
+.tut figure .pose { width: 100%; height: auto; display: block; }
+.tut figcaption { font-size: 13px; display: flex; align-items: center; gap: 6px; padding: 0 4px; }
+.tut figcaption b {
+  font-weight: 400; flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--m); border: 2px solid var(--ink); font-size: 12px;
+}
+.steps { margin: 0; padding-left: 22px; }
+.steps li { margin-bottom: 6px; padding-left: 2px; }
+.oops { margin: 0; padding: 0; list-style: none; }
+.oops li { position: relative; padding-left: 24px; margin-bottom: 6px; }
+.oops li::before {
+  content: "×"; position: absolute; left: 0; top: 2px; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--coral); border: 2px solid var(--ink); font-size: 12px; line-height: 13px; text-align: center;
+}
+.target { margin: 14px 0 6px; }
+
 /* 按鈕 */
 .btn {
   border: var(--line); border-radius: 999px; padding: 11px 18px; background: var(--coral);
