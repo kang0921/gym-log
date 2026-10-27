@@ -1,6 +1,8 @@
 (() => {
   const EX = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
   const MUSCLES = ['腿臀', '背', '胸', '肩', '核心'];
+  const EMOJI = { 腿臀: '🍑', 背: '🦋', 胸: '💛', 肩: '🔮', 核心: '🍀' };
+  const TITLE_EMOJI = { 動作: '🔍', 今天練: '🏋️‍♀️', 進度: '🌈', 紀錄: '📒', 新增: '✏️' };
   // 器械配重片常見的重量
   const STACK = [4.5, 9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 54, 59, 64, 68, 73, 77];
   const TYPE = { coach: '教練課', home: '在家', self: '自主' };
@@ -38,6 +40,21 @@
   const kgText = k => k == null ? '' : num(k) + 'kg';
   const pairHint = (ex, kg) => ex.pair && kg ? `每手 ${kgText(kg / 2)}` : '';
   const norm = s => s.toLowerCase().replace(/\s+/g, '');
+
+  function celebrate() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const pieces = ['🎉', '💪', '✨', '🍑', '💖', '⭐', '🌸'];
+    for (let i = 0; i < 24; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.textContent = pieces[i % pieces.length];
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.animationDuration = 1.6 + Math.random() * 1.4 + 's';
+      c.style.animationDelay = Math.random() * 0.4 + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 3600);
+    }
+  }
 
   function toast(msg) {
     const t = document.createElement('div');
@@ -139,7 +156,7 @@
   }
 
   // ---------- 畫面框架 ----------
-  function setTitle(t, back) { $title.textContent = t; $back.hidden = !back; }
+  function setTitle(t, back, emoji = TITLE_EMOJI[t]) { $title.textContent = emoji ? `${emoji} ${t}` : t; $back.hidden = !back; }
 
   function render() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
@@ -157,11 +174,11 @@
   function openDetail(id) { state.scrollY = window.scrollY; state.detail = id; render(); window.scrollTo(0, 0); }
 
   const statusBadge = st => ({
-    up: '<span class="badge up">▲ 進步</span>',
-    down: '<span class="badge down">▼ 退步</span>',
-    flat: '<span class="badge">— 持平</span>',
-    few: '<span class="badge">做過 1 次</span>',
-    new: '<span class="badge">還沒做過</span>',
+    up: '<span class="badge up">🎉 進步</span>',
+    down: '<span class="badge down">💧 退步</span>',
+    flat: '<span class="badge">😌 持平</span>',
+    few: '<span class="badge">🐣 1 次</span>',
+    new: '<span class="badge">✨ 新的</span>',
   })[st.status];
 
   // ---------- 動作速查 ----------
@@ -170,7 +187,7 @@
     const filters = ['全部', ...MUSCLES, '🏠 在家可做'];
     view.innerHTML = `
       <input class="search" id="q" type="search" placeholder="搜尋動作，例如 row、保蹲、肩推" value="${esc(state.q)}" autocomplete="off">
-      <div class="chips">${filters.map(f => `<button class="chip ${f === state.filter ? 'on' : ''}" data-filter="${f}">${f}</button>`).join('')}</div>
+      <div class="chips">${filters.map(f => `<button class="chip ${f === state.filter ? 'on' : ''}" data-filter="${f}" ${MUSCLES.includes(f) ? `data-m="${f}"` : ''}>${EMOJI[f] ? EMOJI[f] + ' ' : ''}${f}</button>`).join('')}</div>
       <div id="exlist"></div>`;
     view.querySelector('#q').addEventListener('input', e => { state.q = e.target.value; renderExList(); });
     view.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { state.filter = b.dataset.filter; renderLookup(); }));
@@ -188,7 +205,8 @@
     list.sort((a, b) => (b.st.last?.d || '').localeCompare(a.st.last?.d || ''));
 
     const row = ({ e, st }) => `
-      <button class="row" data-ex="${e.id}">
+      <button class="row" data-ex="${e.id}" data-m="${e.muscle}">
+        <span class="ico">${EMOJI[e.muscle]}</span>
         <div class="main">
           <div class="name">${esc(e.zh)} <span class="en">${esc(e.en)}</span></div>
           <div class="last">${st.last ? `上次 ${shortDate(st.last.d)}・${esc(fmtGroups(st.last.groups))}` : '還沒有紀錄'}</div>
@@ -201,7 +219,7 @@
     if (state.filter === '全部' && !q) {
       box.innerHTML = MUSCLES.map(m => {
         const items = list.filter(x => x.e.muscle === m);
-        return `<h2>${m}</h2><div class="list">${items.map(row).join('')}</div>`;
+        return `<h2 class="sec" data-m="${m}">${EMOJI[m]} ${m}</h2><div class="list">${items.map(row).join('')}</div>`;
       }).join('');
     } else {
       box.innerHTML = `<div class="list" style="margin-top:8px">${list.map(row).join('')}</div>`;
@@ -226,6 +244,7 @@
     const xl = pts.length > 4 ? [0, Math.floor((pts.length - 1) / 2), pts.length - 1] : pts.map((_, i) => i);
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="重量趨勢">
       ${ticks.map(t => `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}"/><text x="${pl - 6}" y="${y(t) + 4}" text-anchor="end">${Math.round(t)}</text>`).join('')}
+      <path class="area" d="M${x(0)},${pt + ih} ${pts.map((p, i) => `L${x(i)},${y(p.v)}`).join(' ')} L${x(pts.length - 1)},${pt + ih}Z"/>
       <polyline class="lineplot" points="${pts.map((p, i) => `${x(i)},${y(p.v)}`).join(' ')}"/>
       ${pts.map((p, i) => `<circle class="dot" cx="${x(i)}" cy="${y(p.v)}" r="4"/>${showVal(i) ? `<text class="val" x="${x(i)}" y="${y(p.v) - 9}" text-anchor="middle">${num(p.v)}</text>` : ''}`).join('')}
       ${xl.map(i => `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${shortDate(pts[i].d)}</text>`).join('')}
@@ -236,13 +255,17 @@
     const ex = EX[id];
     const st = stats(id);
     const sg = suggest(id);
-    setTitle(ex.zh, true);
+    setTitle(ex.zh, true, '');
     const last = st.last;
     const lastKg = last ? topKg(ex, last.groups) : null;
-    view.innerHTML = `
-      <div class="muted" style="margin-bottom:10px">${esc(ex.en)}
-        <span class="badge">${ex.equip}</span> <span class="badge">${ex.muscle}</span>
-        ${ex.home ? '<span class="badge home">🏠 在家可做</span>' : ''}
+    view.innerHTML = `<div data-m="${ex.muscle}">
+      <div class="hero">
+        <div class="big-emoji">${EMOJI[ex.muscle]}</div>
+        <div>
+          <div style="font-weight:700">${esc(ex.en)}</div>
+          <span class="badge m">${ex.muscle}</span> <span class="badge m">${ex.equip}</span>
+          ${ex.home ? '<span class="badge home">🏠 在家可做</span>' : ''}
+        </div>
       </div>
 
       <div class="big-stat">
@@ -259,26 +282,27 @@
       </div>
 
       <div class="card suggest">
-        <div class="label">💡 這次建議</div>
+        <div class="label">✨ 這次建議</div>
         <div class="value">${sg.kg != null ? kgText(sg.kg) : '—'} <small>${sg.sets} 組 × ${sg.reps} 下${pairHint(ex, sg.kg) ? `（${pairHint(ex, sg.kg)}）` : ''}</small></div>
         <div class="small">${esc(sg.text)}</div>
         ${st.stalled && !sg.up ? '<div class="small" style="margin-top:4px">已經連續 3 次同樣重量了，可以跟教練討論加重。</div>' : ''}
       </div>
 
       ${st.withKg.length >= 2 ? `
-        <h2>重量趨勢 ${ex.assist ? '<span class="small">（輔助重量，越低越強，所以圖是倒過來的）</span>' : ''}</h2>
+        <h2>📈 重量趨勢 ${ex.assist ? '<span class="small">（輔助重量，越低越強，所以圖是倒過來的）</span>' : ''}</h2>
         <div class="card">${chartSVG(ex, st.withKg)}</div>` : ''}
 
       ${ex.cues.length ? `
-        <h2>教練提醒</h2>
+        <h2>🗣️ 教練提醒</h2>
         <div class="card"><ul class="cues">${ex.cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
 
-      <h2>全部紀錄（${st.h.length} 次）</h2>
+      <h2>📒 全部紀錄（${st.h.length} 次）</h2>
       <div class="card">
         ${st.h.length ? `<table class="hist">${[...st.h].reverse().map(x => `
           <tr><td>${fmtDate(x.d)}<br><span class="badge ${x.t}">${TYPE[x.t]}</span></td>
           <td><strong>${esc(fmtGroups(x.groups))}</strong><div class="small muted">${esc(x.raw || '')}</div></td></tr>`).join('')}</table>` : '<div class="muted">還沒有紀錄</div>'}
-      </div>`;
+      </div>
+    </div>`;
   }
 
   // ---------- 今天練 ----------
@@ -366,7 +390,8 @@
     const doneCount = w.items.reduce((s, it) => s + it.sets.filter(x => x.done).length, 0);
     const allCount = w.items.reduce((s, it) => s + it.sets.length, 0);
     view.innerHTML = `
-      <div class="muted" style="margin-bottom:10px">${w.mode === 'home' ? '🏠 在家' : '🏋️ 健身房'}・${fmtDate(w.d)}・完成 ${doneCount}/${allCount} 組</div>
+      <div class="muted" style="font-weight:600">${w.mode === 'home' ? '🏠 在家' : '🏋️ 健身房'}・${fmtDate(w.d)}・完成 ${doneCount}/${allCount} 組 ${doneCount === allCount ? '🎉' : ''}</div>
+      <div class="progress-pill"><div style="width:${allCount ? doneCount / allCount * 100 : 0}%"></div></div>
       ${w.items.map((it, i) => workoutCard(w, it, i)).join('')}
       <div class="field" style="margin-top:14px">
         <label>今天的感覺（哪裡痠、哪裡累，之後可以給教練看）</label>
@@ -432,10 +457,10 @@
     const sg = suggest(it.id);
     const substitute = w.mode === 'home' && !['啞鈴', '徒手'].includes(ex.equip) ? `（在家用啞鈴代替${ex.equip}）` : '';
     return `
-      <div class="card">
+      <div class="card" data-m="${ex.muscle}">
         <div class="ex-head">
           <div>
-            <div class="slot">${esc(it.slot)}</div>
+            <div class="slot">${EMOJI[ex.muscle]} ${esc(it.slot)}</div>
             <h3>${esc(ex.zh)} <span class="small muted">${esc(ex.en)}</span></h3>
           </div>
           <div class="tools">
@@ -454,7 +479,7 @@
             <div class="n">${j + 1}</div>
             <div class="${s.done ? 'done-row' : ''}"><input inputmode="decimal" data-f="kg" data-i="${i}" data-s="${j}" value="${s.kg ?? ''}" placeholder="—"></div>
             <div class="${s.done ? 'done-row' : ''}"><input inputmode="numeric" data-f="reps" data-i="${i}" data-s="${j}" value="${s.reps ?? ''}" placeholder="—"></div>
-            <button class="check ${s.done ? 'done' : ''}" data-check="${i},${j}" aria-label="完成第 ${j + 1} 組">${s.done ? '✓' : ''}</button>`).join('')}
+            <button class="check ${s.done ? 'done' : ''}" data-check="${i},${j}" aria-label="完成第 ${j + 1} 組">${s.done ? '💪' : ''}</button>`).join('')}
         </div>
         <button class="btn ghost sm" style="margin-top:8px" data-addset="${i}">＋ 加一組</button>
       </div>`;
@@ -481,7 +506,8 @@
     store.set('mySessions', list);
     store.set('workout', null);
     stopTimer();
-    toast('已儲存 💪');
+    celebrate();
+    toast('今天也很棒！已儲存 💪');
     state.tab = 'log'; render();
   }
 
@@ -498,7 +524,7 @@
   function tick() {
     const left = Math.max(0, Math.round((timerEnd - Date.now()) / 1000));
     $left.textContent = `${Math.floor(left / 60)}:${pad(left % 60)}`;
-    if (left <= 0) { stopTimer(); toast('休息結束，下一組！'); navigator.vibrate?.(300); }
+    if (left <= 0) { stopTimer(); toast('休息結束，下一組！🔥'); navigator.vibrate?.(300); }
   }
   function stopTimer() { clearInterval(timerId); $timer.hidden = true; }
   document.getElementById('timer-add').addEventListener('click', () => { timerEnd += 30000; tick(); });
@@ -535,20 +561,21 @@
 
     view.innerHTML = `
       <div class="big-stat">
-        <div class="card"><div class="label">教練課</div><div class="value">${coach} <small>堂</small></div></div>
-        <div class="card"><div class="label">自己練（在家＋自主）</div><div class="value">${mine} <small>次</small></div></div>
+        <div class="card pastel-1"><div class="label">👩‍🏫 教練課</div><div class="value">${coach} <small>堂</small></div></div>
+        <div class="card pastel-2"><div class="label">🏠 自己練</div><div class="value">${mine} <small>次</small></div></div>
       </div>
 
-      <h2>最近 8 週練到的部位（動作數）</h2>
+      <h2>🎯 最近 8 週練到的部位（動作數）</h2>
       <div class="card bars">
-        ${MUSCLES.map(m => `<div class="bar"><span>${m}</span><div class="track"><div class="fill" style="width:${byMuscle[m] / maxM * 100}%"></div></div><span class="num">${byMuscle[m]}</span></div>`).join('')}
+        ${MUSCLES.map(m => `<div class="bar" data-m="${m}"><span>${EMOJI[m]} ${m}</span><div class="track"><div class="fill" style="width:${byMuscle[m] / maxM * 100}%"></div></div><span class="num">${byMuscle[m]}</span></div>`).join('')}
         ${missing.length ? `<div class="small muted" style="margin-top:6px">最近都沒有練到：${missing.join('、')}，排菜單時可以補一下。</div>` : ''}
       </div>
 
-      <h2>重量進步（第一次 → 最近一次）</h2>
+      <h2>🚀 重量進步（第一次 → 最近一次）</h2>
       <div class="list">
         ${prog.map(({ e, a, b, pct, st }) => `
-          <button class="row" data-ex="${e.id}">
+          <button class="row" data-ex="${e.id}" data-m="${e.muscle}">
+            <span class="ico">${EMOJI[e.muscle]}</span>
             <div class="main">
               <div class="name">${esc(e.zh)}</div>
               <div class="last">${kgText(a)} → ${kgText(b)}${e.assist ? '（輔助）' : ''}・${st.withKg.length} 次紀錄</div>
@@ -558,7 +585,7 @@
       </div>
       <p class="small muted">輔助引體向上是看「輔助重量減少多少」，減少越多代表越強。</p>
 
-      <h2>每月訓練次數</h2>
+      <h2>📅 每月訓練次數</h2>
       <div class="card bars">
         ${mKeys.map(k => `<div class="bar"><span>${k.slice(0, 4) === today().slice(0, 4) ? '' : k.slice(2, 4) + '/'}${+k.slice(5)}月</span><div class="track"><div class="fill" style="width:${months[k] / maxMo * 100}%"></div></div><span class="num">${months[k]}</span></div>`).join('')}
       </div>`;
@@ -575,7 +602,7 @@
           <div><strong>${fmtDate(s.d)}</strong> <span class="badge ${s.t}">${TYPE[s.t]}</span></div>
           ${s.id ? `<button class="btn ghost sm" data-del="${s.id}">刪除</button>` : ''}
         </div>
-        ${s.items.map(it => `<div class="sess-item"><span>${esc(EX[it[0]]?.zh || it[0])}</span><span class="g">${esc(fmtGroups(it[1]))}</span></div>`).join('')}
+        ${s.items.map(it => `<div class="sess-item"><span>${EMOJI[EX[it[0]]?.muscle] || '•'} ${esc(EX[it[0]]?.zh || it[0])}</span><span class="g">${esc(fmtGroups(it[1]))}</span></div>`).join('')}
         ${s.note ? `<div class="small muted" style="margin-top:6px">📝 ${esc(s.note)}</div>` : ''}
       </div>`).join('');
     view.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
@@ -742,7 +769,8 @@
     }
     store.set('mySessions', list);
     state.parsed = null;
-    toast(`已儲存 ${ok.length} 個動作`);
+    celebrate();
+    toast(`已儲存 ${ok.length} 個動作 🎉`);
     state.tab = 'log'; render(); window.scrollTo(0, 0);
   }
 
